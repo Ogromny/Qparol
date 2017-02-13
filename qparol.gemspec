@@ -9,6 +9,6 @@ Gem::Specification.new do |s|
   s.homepage    = 'https://github.com/Ogromny/Qparol/'
   s.license     = 'MIT'
   s.executables  = 'qparol'
-  s.add_dependency 'qtbindings', '~> 0'
-  s.add_dependency 'parol', '~> 0'
+  s.add_runtime_dependency 'qtbindings', '~> 4.8', '>= 4.8.6.3'
+  s.add_runtime_dependency 'parol', '~> 3.5', '>= 3.5.1'
 end
