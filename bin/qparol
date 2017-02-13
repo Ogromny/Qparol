@@ -1,0 +1,238 @@
+#!/usr/bin/env ruby
+require 'Qt'
+require 'parol'
+
+# password: rL8CQ3C9pMBfDn9epQyjX6nNycKP3ZGh
+
+class Qarol < Qt::MainWindow
+  slots 'about_me()', 'about_qparol()',
+        'parol_load()', 'parol_save()',
+        'close()', 'new()',
+        'add_row()', 'remove_rows()'
+
+  def initialize
+    super
+
+    initWindow
+    initMenu
+    initView
+    resetDatabaseVar
+
+    show
+  end
+
+  def resetDatabaseVar
+    @database = nil::NilClass
+    @database_file = ''
+    @database_password = ''
+  end
+
+  def initView
+    @tableWidget = Qt::TableWidget.new
+
+    @tableWidget.setColumnCount 4
+    @tableWidget.setHorizontalHeaderLabels ['Program', 'Username', 'Password', 'Comment']
+    @tableWidget.setColumnWidth 0, 200
+    @tableWidget.setColumnWidth 1, 160
+    @tableWidget.setColumnWidth 2, 180
+    @tableWidget.horizontalHeader.setStretchLastSection true
+
+    # @tableWidget.verticalHeader.setVisible false
+
+    @tableWidget.setSelectionBehavior Qt::AbstractItemView::SelectRows
+
+    setCentralWidget @tableWidget
+  end
+
+  def initWindow
+    setWindowTitle 'QParol'
+
+    setMinimumSize 800, 400
+
+    centerWindow
+  end
+
+  def initMenu
+    fileMenu = menuBar.addMenu '&File'
+    @fileMenu_new = Qt::Action.new Qt::Icon.new('images/new.png'), '&New', self
+    @fileMenu_load = Qt::Action.new Qt::Icon.new('images/load.png'), '&Load', self
+    @fileMenu_save = Qt::Action.new Qt::Icon.new('images/save.png'), '&Save', self
+    @fileMenu_close = Qt::Action.new Qt::Icon.new('images/close.png'), '&Close', self
+    fileMenu_exit = Qt::Action.new Qt::Icon.new('images/exit.png'), '&Exit', self
+
+    @fileMenu_new.setShortcut 'Ctrl+N'
+    @fileMenu_load.setShortcut 'Ctrl+L'
+    @fileMenu_save.setShortcut 'Ctrl+S'
+    @fileMenu_close.setShortcut 'Ctrl+C'
+    fileMenu_exit.setShortcut 'Ctrl+Q'
+
+    @fileMenu_save.enabled = false
+    @fileMenu_close.enabled = false
+
+    fileMenu.addAction @fileMenu_new
+    fileMenu.addAction @fileMenu_load
+    fileMenu.addAction @fileMenu_save
+    fileMenu.addAction @fileMenu_close
+    fileMenu.addSeparator
+    fileMenu.addAction fileMenu_exit
+
+    connect @fileMenu_new, SIGNAL('triggered()'), self, SLOT('new()')
+    connect @fileMenu_load, SIGNAL('triggered()'), self, SLOT('parol_load()')
+    connect @fileMenu_save, SIGNAL('triggered()'), self, SLOT('parol_save()')
+    connect @fileMenu_close, SIGNAL('triggered()'), self, SLOT('close()')
+    connect fileMenu_exit, SIGNAL('triggered()'), Qt::Application.instance, SLOT('quit()')
+
+    aboutMenu = menuBar.addMenu '&About'
+    aboutMenu_me = Qt::Action.new Qt::Icon.new('images/me.png'), '&Me', self
+    aboutMenu_QParol = Qt::Action.new Qt::Icon.new('images/qparol.png'), '&QParol', self
+    aboutMenu_Qt = Qt::Action.new Qt::Icon.new('images/qt.png'), '&Qt', self
+
+    aboutMenu.addAction aboutMenu_me
+    aboutMenu.addAction aboutMenu_QParol
+    aboutMenu.addAction aboutMenu_Qt
+
+    aboutMenu_me.setShortcut 'Ctrl+M'
+    aboutMenu_QParol.setShortcut 'Ctrl+P'
+    aboutMenu_Qt.setShortcut 'Ctrl+Alt+Q'
+
+    connect aboutMenu_me, SIGNAL('triggered()'), self, SLOT('about_me()')
+    connect aboutMenu_QParol, SIGNAL('triggered()'), self, SLOT('about_qparol()')
+    connect aboutMenu_Qt, SIGNAL('triggered()'), Qt::Application.instance, SLOT('aboutQt()')
+  end
+
+  def centerWindow
+    screenGeometry = Qt::Application::desktop.screenGeometry
+    x = (screenGeometry.width - width) / 2
+    y = (screenGeometry.height - height) / 2
+    move x, y
+  end
+
+  def about_me
+    Qt::MessageBox.information self, 'About Me', 'I am a French Coder, my name is Ogromny.'
+  end
+
+  def about_qparol
+    Qt::MessageBox.information self, 'About QParol', 'A GUI in Qt for Parol.'
+  end
+
+  def ask_password
+    Qt::InputDialog::getText self, 'Database password', 'Password:'
+  end
+
+  def parol_load
+    @database_file = Qt::FileDialog::getOpenFileName self, 'Load database', ENV['HOME'], 'Parol Database (*)'
+    @database_password = ask_password
+    @database = Parol::Database.new @database_file, @database_password
+
+    @database.accounts do |account|
+      currentRow = @tableWidget.rowCount
+      @tableWidget.setRowCount currentRow + 1
+
+      @tableWidget.setItem currentRow, 0, Qt::TableWidgetItem.new(account[:program])
+      @tableWidget.setItem currentRow, 1, Qt::TableWidgetItem.new(account[:login])
+      @tableWidget.setItem currentRow, 2, Qt::TableWidgetItem.new(account[:password])
+      @tableWidget.setItem currentRow, 3, Qt::TableWidgetItem.new(account[:notes])
+    end
+
+    @fileMenu_new.enabled = false
+    @fileMenu_load.enabled = false
+    @fileMenu_save.enabled = true
+    @fileMenu_close.enabled = true
+
+    setWindowTitle "QParol::#{@database_file}"
+
+  rescue Parol::BadPasswordLength
+    Qt::MessageBox.critical self, 'Database password', 'Password must be 32 of length'
+  rescue Parol::DecryptionFailed
+    Qt::MessageBox.critical self, 'Database password', "Wrong password\nOr\nWrong file"
+  end
+
+  def parol_save
+    row = @tableWidget.rowCount - 1
+    data = []
+
+    0.upto row do |index|
+      parol = {}
+      symbol = [:program, :login, :password, :notes]
+
+      0.upto 3 do |column|
+        item = @tableWidget.item index, column
+        parol[symbol[column]] = item ? item.text : ''
+      end
+
+      data << parol
+    end
+
+    @database.save data
+
+    Qt::MessageBox.information self, 'Success', 'Successfully saved the database !'
+  end
+
+  def contextMenuEvent event
+    menu = Qt::Menu.new self
+    menu_addRow  = Qt::Action.new Qt::Icon.new('images/add_row.png'), '&Add row', self
+    menu_removeRows  = Qt::Action.new Qt::Icon.new('images/remove_row.png'), '&Remove row(s)', self
+
+    menu.addAction menu_addRow
+    menu.addAction menu_removeRows
+
+    connect menu_addRow, SIGNAL('triggered()'), self, SLOT('add_row()')
+    connect menu_removeRows, SIGNAL('triggered()'), self, SLOT('remove_rows()')
+
+    menu.popup Qt::Cursor.pos
+  end
+
+  def add_row
+    current_row = @tableWidget.rowCount
+    @tableWidget.setRowCount current_row + 1
+  end
+
+  def remove_rows
+    select = @tableWidget.selectionModel
+    selected = select.selectedRows
+
+    reponse = Qt::MessageBox.warning self, 'Are you sure ?', 'Do you really want to delete selected rows ?', Qt::MessageBox::Yes|Qt::MessageBox::No
+
+    if reponse == 16384 # YES
+      selected.each do |index|
+        row = index.row
+        @tableWidget.removeRow row
+      end
+    end
+  end
+
+  def close
+    @tableWidget.setRowCount 0
+
+    resetDatabaseVar
+
+    setWindowTitle 'QParol'
+
+    @fileMenu_new.enabled = true
+    @fileMenu_load.enabled = true
+    @fileMenu_save.enabled = false
+    @fileMenu_close.enabled = false
+  end
+
+  def new
+    @database_file = Qt::FileDialog::getSaveFileName self, 'Save database', ENV['HOME'], 'Parol Database (*)'
+    @database_password = ask_password
+    @database = Parol::Database.new @database_file, @database_password
+
+    @tableWidget.setRowCount 0
+
+    @fileMenu_new.enabled = false
+    @fileMenu_load.enabled = false
+    @fileMenu_save.enabled = true
+    @fileMenu_close.enabled = true
+
+    setWindowTitle "QParol::#{@database_file}"
+
+  rescue Parol::BadPasswordLength
+    Qt::MessageBox.critical self, 'Database password', 'Password must be 32 of length'
+  end
+end
+
+app = Qt::Application.new ARGV
+Qarol.new
+app.exec
