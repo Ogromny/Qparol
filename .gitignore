@@ -49,5 +49,11 @@ build-iPhoneSimulator/
 # unless supporting rvm < 1.11.0 or doing something fancy, ignore this:
 .rvmrc
 
-## Intellij Idea
+# Intellij Idea
 .idea/
+
+# Ressource
+images/
+
+# Gemfile trash
+Gemfile.lock

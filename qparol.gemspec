@@ -1,8 +1,10 @@
 Gem::Specification.new do |s|
   s.name        = 'qparol'
-  s.version     = '1.0.0'
-  s.date        = '2017-02-13'
+  s.version     = '1.0.2'
+  s.date        = '2017-02-15'
   s.summary     = 'qparol'
+  s.files       = Dir['images/*']
+  # s.require_paths = ['images']
   s.description = 'A secure password manager'
   s.authors     = ['Ogromny']
   s.email       = 'ogromny@openmailbox.org'
